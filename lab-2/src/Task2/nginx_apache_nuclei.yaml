@@ -1,0 +1,34 @@
+id: nginx-apache-nuclei
+
+info:
+  author: me
+  name: Nginx/Apache web-server detection
+  severity: info
+  description: Nginx/Apache web-server detection for info purposes
+  tags: nginx,apache,info,web,server,tech,detection
+
+requests:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+    extractors:
+    - type: regex
+      name: server_version
+      part: header
+      regex:
+        - "Server: (.+)"
+      internal: true
+    matchers-condition: and
+    matchers:
+    - type: status
+      status:
+        - 200
+    - type: word
+      part: header
+      words:
+        - "Apache"
+        - "nginx"
+      condition: or
+  
+
+     

