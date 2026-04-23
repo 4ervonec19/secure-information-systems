@@ -24,16 +24,16 @@ nmap -p 8080 --script attack_script.nse localhost
 3. Результат
 
 ```txt
-Starting Nmap 7.98 ( https://nmap.org ) at 2026-03-30 18:08 +0300
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-04-23 13:02 +0300
 Nmap scan report for localhost (127.0.0.1)
-Host is up (0.000099s latency).
+Host is up (0.00011s latency).
 Other addresses for localhost (not scanned): ::1
 
 PORT     STATE SERVICE
 8080/tcp open  http-proxy
 |_attack_script: Shellshock vulnerability DETECTED!
 
-Nmap done: 1 IP address (1 host up) scanned in 0.09 seconds
+Nmap done: 1 IP address (1 host up) scanned in 0.15 seconds
 ```
 
 ---
@@ -45,4 +45,4 @@ Nmap done: 1 IP address (1 host up) scanned in 0.09 seconds
 1. Веб-сервер обрабатывает CGI-скрипты, передавая им HTTP-заголовки как переменные окружения.
 2. Заголовое User-Agent преобразуется в переменную окружения ```HTTP_USER_AGENT.```
 3. В уязвимых версиях Bash, если значение переменной начинается с ```() {```, Bash интерпретирует его как определение функции. Ошибка заключалась в том, что после определения функции Bash также выполнял любые команды, следующие после ```}``` в том же значении переменной окружения.
-4. Следовательно, Bash выполнил часть с ```echo {{rand}} SHELLSHOCK VULNERABILITY NUCLEI``` из переменной окружения. Рандом позволяет получать каждый раз разное значение (полезная загрузка не влияет на результат) и каждый раз убеждаться в корректности атаки.
+4. Следовательно, Bash выполнил часть с ```echo; /bin/bash -c 'cat /etc/passwd'``` из переменной окружения. Это позволило получить список пользователей и паролей в системе и сопоставить match.
