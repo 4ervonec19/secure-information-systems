@@ -1,0 +1,166 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "demo-app-risky.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "demo-app-risky.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "demo-app-risky.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "demo-app-risky.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      
+      # Host namespaces с проверкой на конфликты
+      {{- if .Values.hostNetwork }}
+      hostNetwork: {{ .Values.hostNetwork }}
+      {{- end }}
+      
+      {{- if .Values.hostPID }}
+      hostPID: {{ .Values.hostPID }}
+      {{- end }}
+      
+      {{- if .Values.hostIPC }}
+      hostIPC: {{ .Values.hostIPC }}
+      {{- end }}
+      
+      # shareProcessNamespace включаем ТОЛЬКО если hostPID выключен
+      {{- if and .Values.shareProcessNamespace (not .Values.hostPID) }}
+      shareProcessNamespace: {{ .Values.shareProcessNamespace }}
+      {{- else if .Values.shareProcessNamespace }}
+      {{- /* Пропускаем, так как конфликтует с hostPID */ -}}
+      {{- end }}
+      
+      enableServiceLinks: {{ .Values.enableServiceLinks }}
+      
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+              name: http
+              {{- if .Values.hostNetwork }}
+              hostPort: {{ .Values.service.port | default 80 }}
+              {{- end }}
+          
+          {{- if .Values.securityContext }}
+          securityContext:
+            {{- if hasKey .Values.securityContext "privileged" }}
+            privileged: {{ .Values.securityContext.privileged }}
+            {{- end }}
+            {{- if hasKey .Values.securityContext "runAsUser" }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            {{- end }}
+            {{- if hasKey .Values.securityContext "runAsGroup" }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            {{- end }}
+            {{- if hasKey .Values.securityContext "runAsNonRoot" }}
+            runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
+            {{- end }}
+            {{- if hasKey .Values.securityContext "allowPrivilegeEscalation" }}
+            allowPrivilegeEscalation: {{ .Values.securityContext.allowPrivilegeEscalation }}
+            {{- end }}
+            {{- if hasKey .Values.securityContext "readOnlyRootFilesystem" }}
+            readOnlyRootFilesystem: {{ .Values.securityContext.readOnlyRootFilesystem }}
+            {{- end }}
+            {{- if .Values.securityContext.capabilities }}
+            capabilities:
+              {{- if .Values.securityContext.capabilities.add }}
+              add:
+                {{- range .Values.securityContext.capabilities.add }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+              {{- if .Values.securityContext.capabilities.drop }}
+              drop:
+                {{- range .Values.securityContext.capabilities.drop }}
+                - {{ . }}
+                {{- end }}
+              {{- end }}
+            {{- end }}
+            {{- if .Values.securityContext.seccompProfile }}
+            seccompProfile:
+              type: {{ .Values.securityContext.seccompProfile.type }}
+            {{- end }}
+            {{- if .Values.securityContext.appArmorProfile }}
+            appArmorProfile:
+              type: {{ .Values.securityContext.appArmorProfile.type }}
+            {{- end }}
+          {{- end }}
+          
+          env:
+            {{- toYaml .Values.env | nindent 12 }}
+          
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          
+          {{- if or .Values.volumes.hostRoot.enabled .Values.volumes.hostDocker.enabled .Values.volumes.hostProc.enabled .Values.volumes.hostSys.enabled .Values.volumes.hostDev.enabled }}
+          volumeMounts:
+            {{- if .Values.volumes.hostRoot.enabled }}
+            - name: host-root
+              mountPath: {{ .Values.volumes.hostRoot.mountPath }}
+              readOnly: {{ .Values.volumes.hostRoot.readOnly }}
+            {{- end }}
+            {{- if .Values.volumes.hostDocker.enabled }}
+            - name: host-docker
+              mountPath: {{ .Values.volumes.hostDocker.mountPath }}
+              readOnly: {{ .Values.volumes.hostDocker.readOnly }}
+            {{- end }}
+            {{- if .Values.volumes.hostProc.enabled }}
+            - name: host-proc
+              mountPath: {{ .Values.volumes.hostProc.mountPath }}
+              readOnly: {{ .Values.volumes.hostProc.readOnly }}
+            {{- end }}
+            {{- if .Values.volumes.hostSys.enabled }}
+            - name: host-sys
+              mountPath: {{ .Values.volumes.hostSys.mountPath }}
+              readOnly: {{ .Values.volumes.hostSys.readOnly }}
+            {{- end }}
+            {{- if .Values.volumes.hostDev.enabled }}
+            - name: host-dev
+              mountPath: {{ .Values.volumes.hostDev.mountPath }}
+              readOnly: {{ .Values.volumes.hostDev.readOnly }}
+            {{- end }}
+          {{- end }}
+      
+      {{- if or .Values.volumes.hostRoot.enabled .Values.volumes.hostDocker.enabled .Values.volumes.hostProc.enabled .Values.volumes.hostSys.enabled .Values.volumes.hostDev.enabled }}
+      volumes:
+        {{- if .Values.volumes.hostRoot.enabled }}
+        - name: host-root
+          hostPath:
+            path: {{ .Values.volumes.hostRoot.hostPath }}
+            type: Directory
+        {{- end }}
+        {{- if .Values.volumes.hostDocker.enabled }}
+        - name: host-docker
+          hostPath:
+            path: {{ .Values.volumes.hostDocker.hostPath }}
+            type: Socket
+        {{- end }}
+        {{- if .Values.volumes.hostProc.enabled }}
+        - name: host-proc
+          hostPath:
+            path: {{ .Values.volumes.hostProc.hostPath }}
+            type: Directory
+        {{- end }}
+        {{- if .Values.volumes.hostSys.enabled }}
+        - name: host-sys
+          hostPath:
+            path: {{ .Values.volumes.hostSys.hostPath }}
+            type: Directory
+        {{- end }}
+        {{- if .Values.volumes.hostDev.enabled }}
+        - name: host-dev
+          hostPath:
+            path: {{ .Values.volumes.hostDev.hostPath }}
+            type: Directory
+        {{- end }}
+      {{- end }}

@@ -18,7 +18,7 @@ docker run -d -p 8080:80 --name shellshock vulnerables/cve-2014-6271
 
 ```bash
 # src/Task1/attack_script.nse 
-nmap -p 8080 --script attack_script.nse localhost
+nmap -p 8080 --script attack_script.nse localhost --script-trace
 ```
 
 3. Результат

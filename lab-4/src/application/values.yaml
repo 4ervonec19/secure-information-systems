@@ -1,0 +1,84 @@
+namespace: default
+replicaCount: 2
+
+image:
+  repository: nginx
+  tag: alpine
+  pullPolicy: IfNotPresent
+
+
+securityContext:
+  privileged: true
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  allowPrivilegeEscalation: true
+  readOnlyRootFilesystem: false
+  capabilities:
+    add:
+      - ALL
+    drop: []
+  seccompProfile:
+    type: Unconfined
+  appArmorProfile:
+    type: Unconfined
+
+hostNetwork: true
+hostPID: true
+hostIPC: true
+
+enableServiceLinks: true
+
+resources: 
+  limits:
+    memory: 128Mi
+    cpu: 200m
+
+volumes:
+  hostRoot:
+    enabled: true
+    mountPath: /host/root
+    hostPath: /
+    readOnly: false
+  hostDocker:
+    enabled: true
+    mountPath: /var/run/docker.sock
+    hostPath: /var/run/docker.sock
+    readOnly: false
+  hostProc:
+    enabled: true
+    mountPath: /host/proc
+    hostPath: /proc
+    readOnly: false
+  hostSys:
+    enabled: true
+    mountPath: /host/sys
+    hostPath: /sys
+    readOnly: false
+  hostDev:
+    enabled: true
+    mountPath: /host/dev
+    hostPath: /dev
+    readOnly: false
+
+serviceAccount:
+  name: demo-risky-sa
+  create: true
+
+wideRolesEnabled: true
+clusterRoleName: cluster-admin
+
+service:
+  enabled: true
+  name: demo-app-risky-svc
+  type: NodePort
+  port: 80
+  targetPort: 80
+  nodePort: 30080
+  protocol: TCP
+
+env:
+  - name: INSECURE_MODE
+    value: "true"
+  - name: ROOT_ACCESS
+    value: "enabled"
