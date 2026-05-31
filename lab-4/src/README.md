@@ -398,7 +398,6 @@ clusterpolicy.kyverno.io/disallow-host-path-volume-policy created
 helm uninstall demo-attack -n target-ns
 helm install demo-attack ./application --namespace target-ns --create-namespace
 kubectl get pods -n target-ns
-kubectl logs -n kyverno deployment/kyverno-admission-controller --tail=20
 ```
 
 Получаем вывод: `No resources found in target-ns namespace.`
@@ -532,6 +531,215 @@ curl -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceac
 
 Всё сработало корректно! Сервисный аккаунт с такой ролью действительно не может читать секреты.
 
-##
+## Задание 4. Аудит безопасности: kube-bench и Kubescape
+
+- `Цель:` Выполнить сканирование кластера с помощью `kube-bench` (безопасность нод) и `kubescape` (безопасность манифестов), интерпретировать результаты.
+
+1. Проверим настройку узлов. Для этого клонируем репозиторий и запускаем под для `kube-bench:`
+
+```bash
+git clone https://github.com/aquasecurity/kube-bench
+cd kube-bench
+kubectl apply -f job.yaml
+```
+
+После запуска выполним `kubectl get pods:`
+
+```bash
+NAME               READY   STATUS      RESTARTS   AGE
+kube-bench-zpfq4   0/1     Completed   0          105s
+```
+
+Посмотрим на логи, соответствуюшие `[FAIL]:`
+
+```bash
+kubectl logs job/kube-bench | grep -C3 FAIL
+```
+
+И увидим, где у нас ошибки:
+
+```bash
+== Summary master ==
+36 checks PASS
+12 checks FAIL
+12 checks WARN
+0 checks INFO
+
+== Summary node ==
+14 checks PASS
+2 checks FAIL
+9 checks WARN
+0 checks INFO
+
+== Summary total ==
+57 checks PASS
+14 checks FAIL
+60 checks WARN
+0 checks INFO
+```
+
+По логам также можем заметить следующее:
+
+```bash
+[FAIL] 1.1.11 Ensure that the etcd data directory permissions are set to 700 or more restrictive (Automated)
+```
+
+В `etcd` хранится полное и актуальное состояние кластера (поды, чувствительная инфоромация, токены, роли доступа). Злоумышленник, который получит доступ к БД, сможет в будущем анализировать роли и привязки, извлекать токены и отправлять вредоносные API-запросы с целью компроментации кластера.
+
+2. Запуск `kubescape:`
+
+```bash
+curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+```
+
+Вывод:
+```bash
+Installing Kubescape...
+Latest version: v4.0.9
+Downloading from: https://github.com/kubescape/kubescape/releases/download/v4.0.9/kubescape_4.0.9_darwin_arm64
+######################################################################## 100.0%
+Finished Installation.
+
+Remember to add the Kubescape CLI to your path with:
+$ export PATH=$PATH:/Users/a.chervonikov/.kubescape/bin
+
+Finished Installation.
+
+Your current version is: v4.0.9
+Build commit: 002e791cd39fed51dd4a86b321c6d184fa672349
+Build date: 2026-05-29T06:45:08Z
+```
+
+Запускаем сканирование:
+
+```bash
+export PATH=$PATH:/Users/a.chervonikov/.kubescape/bin
+kubescape scan
+```
+
+Но основе вывода, получим:
+
+- В таблице `Access control:` 
+
+```bash
+Administrative Roles                               │     2     │ $ kubescape scan control C-0035 -v
+```
+
+Два ресурса с административными ролями. Выполним:
+
+```bash
+kubescape scan control C-0035 -v
+```
+
+И получим вывод:
+
+```bash
+################################################################################
+ApiVersion: 
+Kind: ServiceAccount
+Name: demo-risky-sa
+Namespace: target-ns
+
+Controls: 1 (Failed: 1, action required: 0)
+
+╭────────────────────────────────────────────────────────────────╮
+│ Resources                                                      │
+├────────────────────────────────────────────────────────────────┤
+│ Severity             : Medium                                  │
+│ Control Name         : Administrative Roles                    │
+│ Docs                 : https://hub.armosec.io/docs/c-0035      │
+│ Assisted Remediation : relatedObjects[1].rules[0].resources[0] │
+│                        relatedObjects[1].rules[0].verbs[0]     │
+│                        relatedObjects[1].rules[0].apiGroups[0] │
+│                        relatedObjects[0].subjects[0]           │
+│                        relatedObjects[0].roleRef.name          │
+╰────────────────────────────────────────────────────────────────╯
+
+################################################################################
+ApiVersion: rbac.authorization.k8s.io
+Kind: Group
+Name: kubeadm:cluster-admins
+
+Controls: 1 (Failed: 1, action required: 0)
+
+╭────────────────────────────────────────────────────────────────╮
+│ Resources                                                      │
+├────────────────────────────────────────────────────────────────┤
+│ Severity             : Medium                                  │
+│ Control Name         : Administrative Roles                    │
+│ Docs                 : https://hub.armosec.io/docs/c-0035      │
+│ Assisted Remediation : relatedObjects[1].rules[0].resources[0] │
+│                        relatedObjects[1].rules[0].verbs[0]     │
+│                        relatedObjects[1].rules[0].apiGroups[0] │
+│                        relatedObjects[0].subjects[0]           │
+│                        relatedObjects[0].roleRef.name          │
+╰────────────────────────────────────────────────────────────────╯
 
 
+╭─────────────────┬───╮
+│        Controls │ 1 │
+│          Passed │ 0 │
+│          Failed │ 1 │
+│ Action Required │ 0 │
+╰─────────────────┴───╯
+
+Failed resources by severity:
+
+╭──────────┬───╮
+│ Critical │ 0 │
+│     High │ 0 │
+│   Medium │ 2 │
+│      Low │ 0 │
+╰──────────┴───╯
+
+╭───────────────────────────────────────────╮
+│ Controls                                  │
+├───────────────────────────────────────────┤
+│        Severity           : Medium        │
+│ Control Name       : Administrative Roles │
+│           Failed Resources   : 2          │
+│          All Resources      : 91          │
+│          % Compliance-Score : 98%         │
+├───────────────────────────────────────────┤
+│ Resource Summary                          │
+│                                           │
+│ Failed Resources : 2                      │
+│ All Resources    : 91                     │
+│ % Compliance-Score    : 97.80%            │
+╰───────────────────────────────────────────╯
+```
+
+Здесь мы видим созданный нами под в неймспейсе `target-ns` и группу, соответствующую администраторам кластера.
+
+2. Контейнеры в привелегированном режиме:
+
+```bash
+Privileged container           │     1     │ $ kubescape scan control C-0057 -v │
+```
+
+```bash
+################################################################################
+ApiVersion: apps/v1
+Kind: Deployment
+Name: demo-attack-my-demo-app
+Namespace: target-ns
+
+Controls: 1 (Failed: 1, action required: 0)
+
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Resources                                                                                        │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Severity             : High                                                                      │
+│ Control Name         : Privileged container                                                      │
+│ Docs                 : https://hub.armosec.io/docs/c-0057                                        │
+│ Assisted Remediation : spec.template.spec.containers[0].securityContext.privileged (my-demo-app) │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+3. Видим, метку `High.` Что можно сделать:
+
+- Изменить манифест развертывания, изменив поле `privilleged` на `false.`
+
+- Добавить `PodSecurityPolicy` или настроить `PodAdmissionPolicy` для неймспейса `target-ns.`
+
+- Добавить мутирование через `Kyverno.`
