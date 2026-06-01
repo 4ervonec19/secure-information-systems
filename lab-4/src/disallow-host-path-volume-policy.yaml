@@ -27,5 +27,5 @@ spec:
         message: HostPath volumes are forbidden. The field spec.volumes[*].hostPath must be unset.
         pattern:
           spec:
-            "=(volumes)":
-              - X(hostPath): "null"
+            "=(volumes)": # same as if (else skipping - assume as valid)
+              - X(hostPath): "null" # there's no key "hostPath" in keys for volumes
