@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-hostpath-cluster
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: host-path
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              names:
+                - "demo-attack-*"
+              # namespaces:
+              #   - "test-policy"
+      validate:
+        message: HostPath volumes are forbidden (ClusterPolicy).
+        pattern:
+          spec:
+            "=(volumes)":
+              - X(hostPath): "null"

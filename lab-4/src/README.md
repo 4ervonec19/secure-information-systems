@@ -376,7 +376,7 @@ Volumes:
     HostPathType:  Directory
 ```
 
-Видим, что корень файловой системы хоста явно проброшен в контейнер. Это наиболее серьёзная уязвимость, поэтому нужно создать соответствующую `Validation Policy.` Найдём её в доке Kyverno: https://kyverno.io/policies/pod-security/baseline/disallow-host-path/disallow-host-path/
+Видим, что корень файловой системы хоста явно проброшен в контейнер. Это наиболее серьёзная уязвимость, поэтому нужно создать соответствующую `Cluster Policy.` Найдём её в доке Kyverno: https://kyverno.io/policies/pod-security/baseline/disallow-host-path/disallow-host-path/
 
 В строке `[23]` добавляем `pre-condition (по имени пода).`
 
@@ -417,6 +417,72 @@ kubectl logs -n kyverno deployment/kyverno-admission-controller --tail=1
 ```
 
 Видим строчку `blocking admission request,` что говорит о том, что Kyverno блокирует создание пода с монтированием хостовой директории ноды.
+
+---
+
+Проведём сравнение `ClusterPolicy` и `ValidationPolicy.` Создадим тестовый `namespace:`
+
+```bash
+kubectl create ns test-policy
+# namespace/test-policy created
+```
+
+- Создаём политику `ClusterPolicy` в файле `cluster-policy.yaml.`
+
+- Создаём политику `ValidatingPolicy` в файлк `validating-policy.yaml`
+
+- Применяем обе политики: `kubectl apply -f cluster-policy.yaml` и `kubectl apply -f validating-policy.yaml`
+
+Далее, создадим несколько тестовых манифестов:
+
+* `test-cluster-validating/test-pod-host-path-demo` – есть `host-path` и есть префикс.
+
+* `test-cluster-validating/test-pod-host-path-other` – есть `host-path,` но другой префикс.
+
+* `test-cluster-validating/test-pod-no-host-path-demo` – без `host-path,` но есть префикс.
+
+И попытаемся их запустить.
+
+```bash
+kubectl apply -f test-cluster-validating/test-pod-host-path-demo.yaml
+
+####
+
+Error from server: error when creating "test-cluster-validating/test-pod-host-path-demo.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
+
+resource Pod/test-policy/demo-attack-test-hostpath was blocked due to the following policies 
+
+disallow-hostpath-cluster:
+  host-path: 'validation error: HostPath volumes are forbidden (ClusterPolicy). rule
+    host-path failed at path /spec/volumes/0/hostPath/'
+```
+
+```bash
+kubectl apply -f test-cluster-validating/test-pod-host-path-other.yaml 
+pod/other-pod created
+```
+
+```bash
+kubectl apply -f test-cluster-validating/test-pod-no-host-path-demo.yaml 
+pod/demo-attack-no-volumes created
+```
+
+Видим, что команды выполнились, как и ожидалось.
+
+Проверим, что `ValidatingPolicy` срабатывает:
+
+```bash
+kubectl delete clusterpolicy disallow-hostpath-cluster
+```
+
+```bash
+kubectl apply -f test-cluster-validating/test-pod-host-path-demo.yaml 
+Error from server: error when creating "test-cluster-validating/test-pod-host-path-demo.yaml": admission webhook "vpol.validate.kyverno.svc-fail" denied the request: Policy no-hostpath-validating failed: HostPath volumes are forbidden in test-policy
+```
+
+Всё корректно работает!
+
+Также в рамках `ClusterPolicy` можно указать поле `namespaces` для данного таргета. В `ValidatingPolicy` получилось настроить через `CEL-`выражение. Также специально для этого есть `NamespacesValidatingPolicy.`
 
 ## Задание 3. Мутирующие политики Kyverno: мутирование секретов
 

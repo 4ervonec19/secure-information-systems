@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-attack-test-hostpath
+  namespace: test-policy
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  volumes:
+    - name: test-vol
+      hostPath:
+        path: /tmp

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: demo-attack-no-volumes
+  namespace: test-policy
+spec:
+  containers:
+    - name: nginx
+      image: nginx
