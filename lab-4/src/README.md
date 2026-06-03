@@ -806,6 +806,6 @@ Controls: 1 (Failed: 1, action required: 0)
 
 - Изменить манифест развертывания, изменив поле `privilleged` на `false.`
 
-- Добавить `PodSecurityPolicy` или настроить `PodAdmissionPolicy` для неймспейса `target-ns.`
+- Добавить `PodSecurityPolicy` или `PodSecurityAdmission` для неймспейса `target-ns.`
 
 - Добавить мутирование через `Kyverno.`
